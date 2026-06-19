@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pupper Clean · Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --green: #1D9E75;
+    --green-dk: #166B50;
+    --green-lt: #E8F7F2;
+    --amber: #854F0B;
+    --amber-lt: #FEF3E2;
+    --red: #A32D2D;
+    --red-lt: #FDEAEA;
+    --blue: #378ADD;
+    --blue-lt: #EAF3FC;
+    --yellow: #FAC775;
+    --purple: #7C5CBF;
+    --text: #1A1A1A;
+    --text-sec: #6B6B6B;
+    --bg: #F4F5F7;
+    --bg-card: #FFFFFF;
+    --border: #E2E2E0;
+    --radius: 12px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar { background: #fff; border-bottom: 1px solid var(--border); padding: 0 2rem; height: 62px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-icon { width: 34px; height: 34px; background: var(--green); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .brand-text { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+  .brand-sub { font-size: 11px; color: var(--text-sec); margin-top: 1px; }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  .ctl label { font-size: 12px; color: var(--text-sec); font-weight: 500; }
+  select { font-size: 13px; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; color: var(--text); cursor: pointer; outline: none; font-weight: 500; }
+  select:focus { border-color: var(--green); }
+  .btn-refresh { font-size: 13px; padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--green); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: 600; transition: background .15s; }
+  .btn-refresh:hover { background: var(--green-dk); }
+
+  /* MAIN */
+  .main { max-width: 1140px; margin: 0 auto; padding: 1.75rem 2rem; }
+
+  /* STATUS */
+  .status-bar { font-size: 12px; color: var(--text-sec); margin-bottom: 1.5rem; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  .status-bar.loading .dot { background: var(--blue); animation: pulse 1s infinite; }
+  .status-bar.error .dot { background: var(--red); }
+  .status-bar.error { color: var(--red); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* SECTION HEADER */
+  .sec-hdr { font-size: 11px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .sec-hdr::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  /* CARDS */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 1.75rem; }
+  .card { background: var(--bg-card); border-radius: var(--radius); padding: 1.1rem 1.25rem; box-shadow: var(--shadow); border: 1px solid var(--border); position: relative; overflow: hidden; }
+  .card::before { content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--green); border-radius: 3px 0 0 3px; }
+  .card.amber::before { background: var(--amber); }
+  .card.red::before   { background: var(--red); }
+  .card.blue::before  { background: var(--blue); }
+  .card.purple::before{ background: var(--purple); }
+  .card-lbl { font-size: 11px; color: var(--text-sec); margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+  .card-val { font-size: 24px; font-weight: 700; color: var(--text); line-height: 1; }
+  .card-val.green  { color: var(--green); }
+  .card-val.red    { color: var(--red); }
+  .card-val.amber  { color: var(--amber); }
+  .card-val.blue   { color: var(--blue); }
+  .card-val.purple { color: var(--purple); }
+  .card-sub { font-size: 11px; color: var(--text-sec); margin-top: 5px; }
+
+  /* PNL BOX */
+  .pnl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.75rem; }
+  .pnl-box { background: var(--bg-card); border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .pnl-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 1rem; }
+  .pnl-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .pnl-row:last-child { border-bottom: none; }
+  .pnl-row.total { font-weight: 700; font-size: 14px; padding-top: 12px; margin-top: 4px; }
+  .pnl-row.total .pnl-val { color: var(--green); }
+  .pnl-row.neg .pnl-val { color: var(--red); }
+  .pnl-lbl { color: var(--text-sec); }
+  .pnl-val { font-weight: 600; color: var(--text); }
+  .margin-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--green-lt); color: var(--green-dk); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-top: 12px; }
+
+  /* CHART CARDS */
+  .chart-card { background: var(--bg-card); border-radius: var(--radius); padding: 1.25rem 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border); }
+  .lgd { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--text-sec); }
+  .lgd span { display: flex; align-items: center; gap: 5px; }
+  .ldot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  /* GRID LAYOUTS */
+  .two-col   { display: grid; grid-template-columns: 1fr 1fr;   gap: 1.5rem; margin-bottom: 1.75rem; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; margin-bottom: 1.75rem; }
+  .section   { margin-bottom: 1.75rem; }
+
+  /* AGENDA TABLE */
+  .agenda-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .agenda-table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--text-sec); text-transform: uppercase; letter-spacing: .05em; border-bottom: 2px solid var(--border); }
+  .agenda-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .agenda-table tr:last-child td { border-bottom: none; }
+  .agenda-table tr:hover td { background: var(--bg); }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge.completed  { background: var(--green-lt); color: var(--green-dk); }
+  .badge.scheduled  { background: var(--blue-lt); color: var(--blue); }
+  .badge.inprogress { background: var(--amber-lt); color: var(--amber); }
+  .empty-msg { text-align: center; padding: 2rem; color: var(--text-sec); font-size: 13px; }
+  .empty-msg strong { display: block; margin-bottom: 4px; color: var(--text); }
+
+  @media(max-width: 700px) {
+    .two-col, .three-col, .pnl-grid { grid-template-columns: 1fr; }
+    .main { padding: 1rem; }
+    .topbar { padding: 0 1rem; }
+    .brand-sub { display: none; }
+    .cards { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-icon">🐾</div>
+    <div>
+      <div class="brand-text">Pupper Clean</div>
+      <div class="brand-sub">Mobile Dog Grooming · Dashboard</div>
+    </div>
+  </div>
+  <div class="ctl">
+    <label>Mês:</label>
+    <select id="monthSel" onchange="loadSheet()">
+      <option value="Jan/26">Jan 2026</option>
+      <option value="Fev/26">Fev 2026</option>
+      <option value="Mar/26">Mar 2026</option>
+      <option value="Abr/26">Abr 2026</option>
+      <option value="Mai/26">Mai 2026</option>
+      <option value="Jun/26" selected>Jun 2026</option>
+      <option value="Jul/26">Jul 2026</option>
+      <option value="Ago/26">Ago 2026</option>
+      <option value="Set/26">Set 2026</option>
+      <option value="Out/26">Out 2026</option>
+      <option value="Nov/26">Nov 2026</option>
+      <option value="Dez/26">Dez 2026</option>
+    </select>
+    <button class="btn-refresh" onclick="loadSheet()">↺ Atualizar</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="status-bar loading" id="status">
+    <span class="dot"></span>
+    <span id="status-text">Conectando à planilha...</span>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="sec-hdr">Resumo do mês</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-lbl">Total faturado</div>
+      <div class="card-val green" id="cv-fat">—</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Total serviços</div>
+      <div class="card-val" id="cv-serv">—</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Total tips</div>
+      <div class="card-val" id="cv-tips">—</div>
+    </div>
+    <div class="card blue">
+      <div class="card-lbl">Appointments</div>
+      <div class="card-val blue" id="cv-appt">—</div>
+      <div class="card-sub" id="cv-appt-sub">dogs atendidos</div>
+    </div>
+    <div class="card blue">
+      <div class="card-lbl">Avg por dog</div>
+      <div class="card-val blue" id="cv-avg">—</div>
+      <div class="card-sub">preço médio</div>
+    </div>
+    <div class="card amber">
+      <div class="card-lbl">Total gastos</div>
+      <div class="card-val amber" id="cv-gastos">—</div>
+    </div>
+    <div class="card">
+      <div class="card-lbl">Lucro líquido</div>
+      <div class="card-val green" id="cv-liq">—</div>
+    </div>
+    <div class="card purple">
+      <div class="card-lbl">Margem lucro</div>
+      <div class="card-val purple" id="cv-margem">—</div>
+    </div>
+  </div>
+
+  <!-- P&L + GASTOS -->
+  <div class="sec-hdr">P&L — Resultado do mês</div>
+  <div class="pnl-grid">
+    <div class="pnl-box">
+      <div class="pnl-title">📈 Receitas</div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Serviços de grooming</span>
+        <span class="pnl-val" id="pnl-serv">—</span>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Tips recebidos</span>
+        <span class="pnl-val" id="pnl-tips">—</span>
+      </div>
+      <div class="pnl-row total">
+        <span class="pnl-lbl">Total faturado</span>
+        <span class="pnl-val" id="pnl-fat">—</span>
+      </div>
+    </div>
+    <div class="pnl-box">
+      <div class="pnl-title">📉 Despesas</div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Gasolina</span>
+        <span class="pnl-val neg" id="pnl-gas">—</span>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Gás</span>
+        <span class="pnl-val neg" id="pnl-gg">—</span>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Seguro Van</span>
+        <span class="pnl-val neg" id="pnl-seg">—</span>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Produtos</span>
+        <span class="pnl-val neg" id="pnl-prod">—</span>
+      </div>
+      <div class="pnl-row">
+        <span class="pnl-lbl">Manutenção</span>
+        <span class="pnl-val neg" id="pnl-manut">—</span>
+      </div>
+      <div class="pnl-row total">
+        <span class="pnl-lbl">Lucro líquido</span>
+        <span class="pnl-val" id="pnl-liq">—</span>
+      </div>
+      <div id="pnl-margin-badge" class="margin-badge" style="display:none">
+        <span>📊</span><span id="pnl-margin-text">—</span> de margem
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="sec-hdr">Receitas</div>
+  <div class="section">
+    <div class="chart-card">
+      <div class="lgd">
+        <span><span class="ldot" style="background:#1D9E75"></span>Serviços</span>
+        <span><span class="ldot" style="background:#FAC775"></span>Tips</span>
+      </div>
+      <div style="position:relative;height:220px"><canvas id="ch1"></canvas></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="sec-hdr">Receita por semana</div>
+      <div class="chart-card">
+        <div class="lgd">
+          <span><span class="ldot" style="background:#1D9E75"></span>Serviços</span>
+          <span><span class="ldot" style="background:#FAC775"></span>Tips</span>
+        </div>
+        <div style="position:relative;height:220px"><canvas id="ch2"></canvas></div>
+      </div>
+    </div>
+    <div>
+      <div class="sec-hdr">Gastos por categoria</div>
+      <div class="chart-card">
+        <div style="position:relative;height:255px"><canvas id="ch3"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="sec-hdr">Faturado vs Gastos</div>
+  <div class="section">
+    <div class="chart-card">
+      <div class="lgd">
+        <span><span class="ldot" style="background:#1D9E75"></span>Faturado</span>
+        <span><span class="ldot" style="background:#E24B4A"></span>Gastos</span>
+        <span><span class="ldot" style="background:#378ADD"></span>Líquido</span>
+      </div>
+      <div style="position:relative;height:220px"><canvas id="ch4"></canvas></div>
+    </div>
+  </div>
+
+  <!-- APPOINTMENTS -->
+  <div class="sec-hdr">Appointments por semana</div>
+  <div class="section">
+    <div class="chart-card">
+      <div class="lgd">
+        <span><span class="ldot" style="background:#378ADD"></span>Dogs atendidos</span>
+      </div>
+      <div style="position:relative;height:180px"><canvas id="ch5"></canvas></div>
+    </div>
+  </div>
+
+  <!-- AGENDA -->
+  <div class="sec-hdr">Agenda do dia</div>
+  <div class="chart-card" id="agenda-card">
+    <div class="empty-msg">
+      <strong>Aba "Agenda" não encontrada</strong>
+      Adicione uma aba chamada <b>Agenda</b> na planilha com as colunas:<br>
+      <b>Horário · Cliente · Pet · Serviço · Valor · Status</b><br><br>
+      Status aceitos: <b>Completed</b> · <b>Scheduled</b> · <b>In Progress</b>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+const SHEET_ID = '1soazHuIlaXG-DwvupNgGsow-LcFABvMb0aoFIjBjCiU';
+const API_KEY  = 'AIzaSyCcTa4rnYPKUG6rppZ3xcmn8LdYRcutR94';
+const charts   = {};
+
+function $v(id){ return document.getElementById(id); }
+
+function pv(s){
+  if(!s && s!==0) return 0;
+  let str = String(s).replace(/\s/g,'').replace(/[$R]/g,'');
+  if(/,\d{2}$/.test(str)){ str = str.replace(/\./g,'').replace(',','.'); }
+  else { str = str.replace(/,/g,''); }
+  return parseFloat(str) || 0;
+}
+
+function fmt(v, dash){
+  if(v===null||v===undefined||isNaN(v)) return dash||'—';
+  return '$'+Math.round(v).toLocaleString('en-US');
+}
+
+function setCard(id, val, cls){
+  const el=$v(id); if(!el) return;
+  el.textContent = fmt(val);
+  if(cls) el.className='card-val '+cls;
+}
+
+function setText(id, txt){
+  const el=$v(id); if(el) el.textContent=txt;
+}
+
+function setStatus(msg, state){
+  const bar=$v('status');
+  bar.className='status-bar '+(state||'');
+  $v('status-text').textContent=msg;
+}
+
+function killCharts(){
+  Object.keys(charts).forEach(k=>{ if(charts[k]){ charts[k].destroy(); delete charts[k]; } });
+}
+
+function mkChart(id, cfg){
+  const c=$v(id); if(!c) return;
+  charts[id]=new Chart(c,cfg);
+}
+
+const WEEK_STARTS=[1,12,22,32,42];
+const DAY_S=[1,3,5,7,9];
+const DAY_T=[2,4,6,8,10];
+const DAYS=['Seg','Ter','Qua','Qui','Sex'];
+
+async function fetchRange(range){
+  const url=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
+  const res=await fetch(url);
+  const json=await res.json();
+  if(json.error) throw new Error(json.error.message);
+  return json.values||[];
+}
+
+async function loadSheet(){
+  const month=$v('monthSel').value;
+  setStatus('Buscando dados...','loading');
+  try{
+    // Load main sheet
+    const rows = await fetchRange(`${month}!A1:U55`);
+    processRows(rows);
+
+    // Try agenda tab
+    try{
+      const agendaRows = await fetchRange(`Agenda!A1:F50`);
+      renderAgenda(agendaRows, month);
+    } catch(e){
+      // Agenda tab not found — show instructions
+      renderAgendaEmpty();
+    }
+
+    setStatus('Dados atualizados · ao vivo do Google Sheets','');
+  } catch(e){
+    setStatus('Erro ao carregar: '+e.message,'error');
+  }
+}
+
+function processRows(rows){
+  function cell(r,c){ return (rows[r]||[])[c]||''; }
+
+  const dayS=[0,0,0,0,0], dayT=[0,0,0,0,0], dayCnt=[0,0,0,0,0];
+  const weeks=[];
+  let totGas=0, totGG=0;
+  let totalAppt=0;
+
+  WEEK_STARTS.forEach((ws,wi)=>{
+    let wS=0,wT=0,wGas=0,wGG=0,wAppt=0;
+    DAY_S.forEach((dc,di)=>{
+      let dS=0,dT=0,dAppt=0;
+      for(let dog=1;dog<=4;dog++){
+        const val=pv(cell(ws+dog,dc));
+        const tip=pv(cell(ws+dog,DAY_T[di]));
+        if(val>0){ dS+=val; dT+=tip; dAppt++; }
+      }
+      wS+=dS; wT+=dT; wAppt+=dAppt;
+      if(dS>0||dT>0){ dayS[di]+=dS; dayT[di]+=dT; dayCnt[di]++; }
+    });
+    // Gasolina e Gás semanais ficam na coluna 13 (label) / 14 (valor) dentro do bloco "Semanal"
+    // linha ws+7 = "Gasolina", linha ws+8 = "Gás "
+    wGas=pv(cell(ws+7,14));
+    wGG=pv(cell(ws+8,14));
+    totGas+=wGas; totGG+=wGG;
+    totalAppt+=wAppt;
+    weeks.push({label:'Sem '+(wi+1),s:wS,t:wT,gas:wGas,gg:wGG,appt:wAppt});
+  });
+
+  // Despesas fixas
+  let segVan=0,prods=0,manut=0;
+  const ws0=WEEK_STARTS[0];
+  for(let r=ws0;r<=ws0+6;r++){
+    const lbl=String(cell(r,15)).toLowerCase().trim();
+    const val=pv(cell(r,16));
+    if(lbl.includes('seguro')) segVan=val;
+    else if(lbl.includes('produto')) prods=val;
+    else if(lbl.includes('manut')) manut=val;
+  }
+
+  // Totais do Geral Mensal
+  const gS=pv(cell(8,16)), gT=pv(cell(9,16));
+  const gGas=pv(cell(8,18)), gGG=pv(cell(9,18));
+  const gMensalHasGas = String(cell(8,17)).toLowerCase().includes('gasolina');
+  const gMensalHasGG  = String(cell(9,17)).toLowerCase().includes('g\u00e1s');
+  const gDesp=pv(cell(8,20));
+
+  const finalS    = gS   || dayS.reduce((a,b)=>a+b,0);
+  const finalT    = gT   || dayT.reduce((a,b)=>a+b,0);
+  const finalFat  = finalS+finalT;
+  const finalGas  = gMensalHasGas ? gGas : totGas;
+  const finalGG   = gMensalHasGG  ? gGG  : totGG;
+  const finalDesp = gDesp|| (segVan+prods+manut);
+  const totalGastos = finalGas+finalGG+finalDesp;
+  const finalLiq  = finalFat-totalGastos;
+  const margem    = finalFat>0 ? (finalLiq/finalFat*100) : 0;
+  const avgDog    = totalAppt>0 ? finalS/totalAppt : 0;
+
+  // Cards
+  setCard('cv-fat',   finalFat,  'green');
+  setCard('cv-serv',  finalS);
+  setCard('cv-tips',  finalT);
+  setText('cv-appt',  totalAppt);
+  setText('cv-appt-sub', totalAppt===1?'dog atendido':'dogs atendidos');
+  setCard('cv-avg',   avgDog,    'blue');
+  setCard('cv-gastos',totalGastos,'amber');
+  setCard('cv-liq',   finalLiq,  finalLiq>=0?'green':'red');
+  setText('cv-margem', Math.round(margem)+'%');
+
+  // P&L
+  setText('pnl-serv',  fmt(finalS));
+  setText('pnl-tips',  fmt(finalT));
+  setText('pnl-fat',   fmt(finalFat));
+  setText('pnl-gas',  '-'+fmt(finalGas));
+  setText('pnl-gg',   '-'+fmt(finalGG));
+  setText('pnl-seg',  '-'+fmt(segVan));
+  setText('pnl-prod', '-'+fmt(prods));
+  setText('pnl-manut','-'+fmt(manut));
+  setText('pnl-liq',   fmt(finalLiq));
+
+  const badge=$v('pnl-margin-badge');
+  if(badge){
+    badge.style.display='inline-flex';
+    setText('pnl-margin-text', Math.round(margem)+'%');
+    badge.style.background = margem>=20?'var(--green-lt)':'var(--amber-lt)';
+    badge.style.color = margem>=20?'var(--green-dk)':'var(--amber)';
+  }
+
+  killCharts();
+
+  const avgS=dayS.map((v,i)=>dayCnt[i]>0?Math.round(v/dayCnt[i]):0);
+  const avgT=dayT.map((v,i)=>dayCnt[i]>0?Math.round(v/dayCnt[i]):0);
+
+  const tickOpts={color:'#888',font:{size:11}};
+  const gridOpts={color:'rgba(0,0,0,0.05)'};
+  const ttLbl=ctx=>' '+ctx.dataset.label+': '+fmt(ctx.parsed.y);
+  const ttAbs=ctx=>' '+ctx.dataset.label+': '+fmt(Math.abs(ctx.parsed.y));
+
+  // CH1 — média por dia da semana
+  mkChart('ch1',{type:'bar',data:{labels:DAYS,datasets:[
+    {label:'Serviços',data:avgS,backgroundColor:'#1D9E75',borderRadius:6,stack:'a'},
+    {label:'Tips',data:avgT,backgroundColor:'#FAC775',borderRadius:6,stack:'a'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ttLbl}}},
+    scales:{x:{stacked:true,grid:{display:false},ticks:tickOpts},y:{stacked:true,grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.round(v)}}}}});
+
+  // CH2 — por semana
+  mkChart('ch2',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
+    {label:'Serviços',data:weeks.map(w=>w.s),backgroundColor:'#1D9E75',borderRadius:6,stack:'a'},
+    {label:'Tips',data:weeks.map(w=>w.t),backgroundColor:'#FAC775',borderRadius:6,stack:'a'}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ttLbl}}},
+    scales:{x:{stacked:true,grid:{display:false},ticks:tickOpts},y:{stacked:true,grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.round(v)}}}}});
+
+  // CH3 — pizza gastos
+  const catL=['Gasolina','Gás','Seg. Van','Produtos','Manutenção'];
+  const catV=[finalGas,finalGG,segVan,prods,manut];
+  const catC=['#1D9E75','#FAC775','#378ADD','#D4537E','#888780'];
+  const vi=catV.map((v,i)=>v>0?i:-1).filter(i=>i>=0);
+  if(vi.length>0){
+    mkChart('ch3',{type:'doughnut',data:{
+      labels:vi.map(i=>catL[i]),
+      datasets:[{data:vi.map(i=>catV[i]),backgroundColor:vi.map(i=>catC[i]),borderWidth:0,hoverOffset:6}]
+    },options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},color:'#888',padding:10,boxWidth:10,boxHeight:10}},
+      tooltip:{callbacks:{label:c=>' '+c.label+': '+fmt(c.parsed)}}}}});
+  }
+
+  // CH4 — faturado vs gastos
+  mkChart('ch4',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
+    {label:'Faturado',data:weeks.map(w=>w.s+w.t),backgroundColor:'#1D9E75',borderRadius:6},
+    {label:'Gastos',data:weeks.map(w=>-(w.gas+w.gg)),backgroundColor:'#E24B4A',borderRadius:6},
+    {label:'Líquido',data:weeks.map(w=>(w.s+w.t)-(w.gas+w.gg)),type:'line',borderColor:'#378ADD',
+     backgroundColor:'rgba(55,138,221,0.08)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#378ADD',borderWidth:2}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ttAbs}}},
+    scales:{x:{grid:{display:false},ticks:tickOpts},y:{grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.abs(Math.round(v))}}}}});
+
+  // CH5 — appointments por semana
+  mkChart('ch5',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
+    {label:'Dogs atendidos',data:weeks.map(w=>w.appt),backgroundColor:'#378ADD',borderRadius:6}
+  ]},options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.parsed.y+' dogs'}}},
+    scales:{x:{grid:{display:false},ticks:tickOpts},y:{grid:gridOpts,ticks:{...tickOpts,stepSize:1,callback:v=>Math.floor(v)===v?v:''}}}}});
+}
+
+function renderAgenda(rows, currentMonth){
+  const card=$v('agenda-card');
+  if(!rows||rows.length<2){ renderAgendaEmpty(); return; }
+
+  // Filter by current month if there's a date column, else show all
+  // Expected cols: Horário(0), Cliente(1), Pet(2), Serviço(3), Valor(4), Status(5)
+  // Skip header row (row 0)
+  const dataRows=rows.slice(1).filter(r=>r&&r.length>0&&r[0]);
+
+  if(dataRows.length===0){ renderAgendaEmpty(); return; }
+
+  const statusBadge=(s)=>{
+    const sl=(s||'').toLowerCase();
+    if(sl.includes('complet')) return '<span class="badge completed">Completed</span>';
+    if(sl.includes('progress')||sl.includes('andamento')) return '<span class="badge inprogress">In Progress</span>';
+    return '<span class="badge scheduled">Scheduled</span>';
+  };
+
+  let html=`<table class="agenda-table">
+    <thead><tr>
+      <th>Horário</th><th>Cliente</th><th>Pet</th><th>Serviço</th><th>Valor</th><th>Status</th>
+    </tr></thead><tbody>`;
+
+  dataRows.forEach(r=>{
+    html+=`<tr>
+      <td><strong>${r[0]||'—'}</strong></td>
+      <td>${r[1]||'—'}</td>
+      <td>🐶 ${r[2]||'—'}</td>
+      <td>${r[3]||'—'}</td>
+      <td><strong>${r[4]?fmt(pv(r[4])):'—'}</strong></td>
+      <td>${statusBadge(r[5])}</td>
+    </tr>`;
+  });
+
+  html+=`</tbody></table>`;
+  card.innerHTML=html;
+}
+
+function renderAgendaEmpty(){
+  $v('agenda-card').innerHTML=`<div class="empty-msg">
+    <strong>Aba "Agenda" não encontrada na planilha</strong>
+    Crie uma aba chamada <b>Agenda</b> com as colunas:<br>
+    <b>Horário &nbsp;·&nbsp; Cliente &nbsp;·&nbsp; Pet &nbsp;·&nbsp; Serviço &nbsp;·&nbsp; Valor &nbsp;·&nbsp; Status</b><br><br>
+    Status aceitos: <b>Completed</b> &nbsp;·&nbsp; <b>Scheduled</b> &nbsp;·&nbsp; <b>In Progress</b>
+  </div>`;
+}
+
+loadSheet();
+</script>
+</body>
+</html>
