@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -360,8 +361,8 @@
     <div class="eyebrow">Receita por dia da semana</div>
     <div class="chart-card">
       <div class="chart-legend">
-        <span><span class="ldot" style="background:#1D4C8B"></span>Serviços</span>
-        <span><span class="ldot" style="background:#2E78D9"></span>Tips</span>
+        <span><span class="ldot" style="background:#3F51B5"></span>Serviços</span>
+        <span><span class="ldot" style="background:#FF4081"></span>Tips</span>
       </div>
       <div style="position:relative;height:220px"><canvas id="ch1"></canvas></div>
     </div>
@@ -372,8 +373,8 @@
       <div class="eyebrow">Receita por semana</div>
       <div class="chart-card">
         <div class="chart-legend">
-          <span><span class="ldot" style="background:#1D4C8B"></span>Serviços</span>
-          <span><span class="ldot" style="background:#2E78D9"></span>Tips</span>
+          <span><span class="ldot" style="background:#3F51B5"></span>Serviços</span>
+          <span><span class="ldot" style="background:#FF4081"></span>Tips</span>
         </div>
         <div style="position:relative;height:220px"><canvas id="ch2"></canvas></div>
       </div>
@@ -390,9 +391,9 @@
     <div class="eyebrow">Faturado vs gastos</div>
     <div class="chart-card">
       <div class="chart-legend">
-        <span><span class="ldot" style="background:#1D4C8B"></span>Faturado</span>
-        <span><span class="ldot" style="background:#C23B33"></span>Gastos</span>
-        <span><span class="ldot" style="background:#2E78D9"></span>Líquido</span>
+        <span><span class="ldot" style="background:#3F51B5"></span>Faturado</span>
+        <span><span class="ldot" style="background:#F44336"></span>Gastos</span>
+        <span><span class="ldot" style="background:#009688"></span>Líquido</span>
       </div>
       <div style="position:relative;height:220px"><canvas id="ch4"></canvas></div>
     </div>
@@ -402,7 +403,7 @@
     <div class="eyebrow">Appointments por semana</div>
     <div class="chart-card">
       <div class="chart-legend">
-        <span><span class="ldot" style="background:#2E78D9"></span>Dogs atendidos</span>
+        <span><span class="ldot" style="background:#009688"></span>Dogs atendidos</span>
       </div>
       <div style="position:relative;height:180px"><canvas id="ch5"></canvas></div>
     </div>
@@ -578,29 +579,29 @@ function processRows(rows){
   const ttLbl=ctx=>' '+ctx.dataset.label+': '+fmt(ctx.parsed.y);
   const ttAbs=ctx=>' '+ctx.dataset.label+': '+fmt(Math.abs(ctx.parsed.y));
   const tooltipBase={
-    backgroundColor:'#1D4C8B', titleColor:'#FFFFFF', bodyColor:'#FFFFFF',
-    borderColor:'#1D4C8B', borderWidth:0, padding:10, displayColors:false,
+    backgroundColor:'#3A4557', titleColor:'#FFFFFF', bodyColor:'#FFFFFF',
+    borderColor:'#3A4557', borderWidth:0, padding:10, displayColors:false,
     titleFont:{family:'Inter',weight:'700'}, bodyFont:{family:'Inter'},
     cornerRadius:8
   };
 
   mkChart('ch1',{type:'bar',data:{labels:DAYS,datasets:[
-    {label:'Serviços',data:avgS,backgroundColor:'#1D4C8B',borderRadius:6,stack:'a'},
-    {label:'Tips',data:avgT,backgroundColor:'#2E78D9',borderRadius:6,stack:'a'}
+    {label:'Serviços',data:avgS,backgroundColor:'#3F51B5',borderRadius:6,stack:'a'},
+    {label:'Tips',data:avgT,backgroundColor:'#FF4081',borderRadius:6,stack:'a'}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{...tooltipBase,callbacks:{label:ttLbl}}},
     scales:{x:{stacked:true,grid:{display:false},ticks:tickOpts},y:{stacked:true,grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.round(v)}}}}});
 
   mkChart('ch2',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
-    {label:'Serviços',data:weeks.map(w=>w.s),backgroundColor:'#1D4C8B',borderRadius:6,stack:'a'},
-    {label:'Tips',data:weeks.map(w=>w.t),backgroundColor:'#2E78D9',borderRadius:6,stack:'a'}
+    {label:'Serviços',data:weeks.map(w=>w.s),backgroundColor:'#3F51B5',borderRadius:6,stack:'a'},
+    {label:'Tips',data:weeks.map(w=>w.t),backgroundColor:'#FF4081',borderRadius:6,stack:'a'}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{...tooltipBase,callbacks:{label:ttLbl}}},
     scales:{x:{stacked:true,grid:{display:false},ticks:tickOpts},y:{stacked:true,grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.round(v)}}}}});
 
   const catL=['Gasolina','Gás','Seg. Van','Produtos','Manutenção'];
   const catV=[finalGas,finalGG,segVan,prods,manut];
-  const catC=['#1D4C8B','#2E78D9','#5B9FE8','#B5790A','#8696AC'];
+  const catC=['#3F51B5','#FF4081','#009688','#FF9800','#9C27B0'];
   const vi=catV.map((v,i)=>v>0?i:-1).filter(i=>i>=0);
   if(vi.length>0){
     mkChart('ch3',{type:'doughnut',data:{
@@ -612,16 +613,16 @@ function processRows(rows){
   }
 
   mkChart('ch4',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
-    {label:'Faturado',data:weeks.map(w=>w.s+w.t),backgroundColor:'#1D4C8B',borderRadius:6},
-    {label:'Gastos',data:weeks.map(w=>-(w.gas+w.gg)),backgroundColor:'#C23B33',borderRadius:6},
-    {label:'Líquido',data:weeks.map(w=>(w.s+w.t)-(w.gas+w.gg)),type:'line',borderColor:'#2E78D9',
-     backgroundColor:'rgba(46,120,217,0.12)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#2E78D9',borderWidth:2}
+    {label:'Faturado',data:weeks.map(w=>w.s+w.t),backgroundColor:'#3F51B5',borderRadius:6},
+    {label:'Gastos',data:weeks.map(w=>-(w.gas+w.gg)),backgroundColor:'#F44336',borderRadius:6},
+    {label:'Líquido',data:weeks.map(w=>(w.s+w.t)-(w.gas+w.gg)),type:'line',borderColor:'#009688',
+     backgroundColor:'rgba(0,150,136,0.12)',tension:.4,fill:true,pointRadius:4,pointBackgroundColor:'#009688',borderWidth:2}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{...tooltipBase,callbacks:{label:ttAbs}}},
     scales:{x:{grid:{display:false},ticks:tickOpts},y:{grid:gridOpts,ticks:{...tickOpts,callback:v=>'$'+Math.abs(Math.round(v))}}}}});
 
   mkChart('ch5',{type:'bar',data:{labels:weeks.map(w=>w.label),datasets:[
-    {label:'Dogs atendidos',data:weeks.map(w=>w.appt),backgroundColor:'#2E78D9',borderRadius:6}
+    {label:'Dogs atendidos',data:weeks.map(w=>w.appt),backgroundColor:'#009688',borderRadius:6}
   ]},options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{...tooltipBase,callbacks:{label:ctx=>' '+ctx.parsed.y+' dogs'}}},
     scales:{x:{grid:{display:false},ticks:tickOpts},y:{grid:gridOpts,ticks:{...tickOpts,stepSize:1,callback:v=>Math.floor(v)===v?v:''}}}}});
