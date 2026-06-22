@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -461,7 +460,6 @@ function killCharts(){
 }
 function mkChart(id, cfg){ const c=$v(id); if(!c) return; charts[id]=new Chart(c,cfg); }
 
-const WEEK_STARTS=[1,12,22,32,42];
 const DAY_S=[1,3,5,7,9];
 const DAY_T=[2,4,6,8,10];
 const DAYS=['Seg','Ter','Qua','Qui','Sex'];
@@ -478,7 +476,7 @@ async function loadSheet(){
   const month=$v('monthSel').value;
   setStatus('Buscando dados...','loading');
   try{
-    const rows = await fetchRange(`${month}!A1:U55`);
+    const rows = await fetchRange(`${month}!A1:U80`);
     processRows(rows);
     try{
       const agendaRows = await fetchRange(`Agenda!A1:F50`);
@@ -493,54 +491,167 @@ async function loadSheet(){
 function processRows(rows){
   function cell(r,c){ return (rows[r]||[])[c]||''; }
 
-  const dayS=[0,0,0,0,0], dayT=[0,0,0,0,0], dayCnt=[0,0,0,0,0];
-  const weeks=[];
-  let totGas=0, totGG=0, totalAppt=0;
-
-  WEEK_STARTS.forEach((ws,wi)=>{
-    let wS=0,wT=0,wGas=0,wGG=0,wAppt=0;
-    DAY_S.forEach((dc,di)=>{
-      let dS=0,dT=0,dAppt=0;
-      for(let dog=1;dog<=4;dog++){
-        const val=pv(cell(ws+dog,dc));
-        const tip=pv(cell(ws+dog,DAY_T[di]));
-        if(val>0){ dS+=val; dT+=tip; dAppt++; }
-      }
-      wS+=dS; wT+=dT; wAppt+=dAppt;
-      if(dS>0||dT>0){ dayS[di]+=dS; dayT[di]+=dT; dayCnt[di]++; }
-    });
-    wGas=pv(cell(ws+7,14));
-    wGG=pv(cell(ws+8,14));
-    totGas+=wGas; totGG+=wGG; totalAppt+=wAppt;
-    weeks.push({label:'Sem '+(wi+1),s:wS,t:wT,gas:wGas,gg:wGG,appt:wAppt});
-  });
-
-  let segVan=0,prods=0,manut=0;
-  const ws0=WEEK_STARTS[0];
-  for(let r=ws0;r<=ws0+6;r++){
-    const lbl=String(cell(r,15)).toLowerCase().trim();
-    const val=pv(cell(r,16));
-    if(lbl.includes('seguro')) segVan=val;
-    else if(lbl.includes('produto')) prods=val;
-    else if(lbl.includes('manut')) manut=val;
+  // ── Detecta estrutura ─────────────────────────────────────────────────────
+  // Nova (Fev–Mai): col 0 vazia, labels col 1, dados col 2+
+  // Antiga (Jun):   labels col 0, dados col 1+
+  let isNewStructure = false;
+  for(let r=0; r<Math.min(rows.length,20); r++){
+    const b = String((rows[r]||[])[1]||'').toLowerCase();
+    const a = String((rows[r]||[])[0]||'').toLowerCase();
+    if(b.includes('dog - ')){ isNewStructure = true; break; }
+    if(a.includes('dog - ')){ isNewStructure = false; break; }
   }
 
-  const gS=pv(cell(8,16)), gT=pv(cell(9,16));
-  const gGas=pv(cell(8,18)), gGG=pv(cell(9,18));
-  const gMensalHasGas = String(cell(8,17)).toLowerCase().includes('gasolina');
-  const gMensalHasGG  = String(cell(9,17)).toLowerCase().includes('gás');
-  const gDesp=pv(cell(8,20));
+  const dayTotals=[]; // {s, t, dayLabel}
+  const weeks=[];
+  let totGas=0, totGG=0, totalAppt=0;
+  let segVan=0, prods=0, manut=0;
+  let finalS=0, finalT=0, finalGas=0, finalGG=0, finalDesp=0;
 
-  const finalS    = gS   || dayS.reduce((a,b)=>a+b,0);
-  const finalT    = gT   || dayT.reduce((a,b)=>a+b,0);
-  const finalFat  = finalS+finalT;
-  const finalGas  = gMensalHasGas ? gGas : totGas;
-  const finalGG   = gMensalHasGG  ? gGG  : totGG;
-  const finalDesp = gDesp || (segVan+prods+manut);
-  const totalGastos = finalGas+finalGG+finalDesp;
-  const finalLiq  = finalFat-totalGastos;
-  const margem    = finalFat>0 ? (finalLiq/finalFat*100) : 0;
-  const avgDog    = totalAppt>0 ? finalS/totalAppt : 0;
+  if(isNewStructure){
+    // ── Nova estrutura (Fev–Mai) ─────────────────────────────────────────────
+    // Layout por bloco de semana:
+    //   row N:   cabeçalho (col1=mês, col2=data1, col3="Tips", col4=data2...)
+    //   row N+1: Dog-1  (col2=serv1, col3=tip1, col4=serv2...)
+    //   row N+2: Dog-2
+    //   row N+3: Dog-3
+    //   row N+4: Dog-4
+    //   row N+5: subtotal (col1 vazio)
+    //   row N+6: "Total dia"
+    //   row N+7: "Gasolina "
+    //   row N+8: "Gás "
+    //
+    // Serviço cols: 2,4,6,8,10  |  Tips cols: 3,5,7,9,11
+
+    const S_COLS = [2,4,6,8,10];
+    const T_COLS = [3,5,7,9,11];
+    const DAY_NAMES = ['Seg','Ter','Qua','Qui','Sex'];
+
+    // Encontra todos os blocos pela linha de cabeçalho (col1 = nome do mês, col2 = data)
+    // Um cabeçalho tem: col1 = texto do mês (ex "Maio"), col2 = data (tem "/")
+    let weekIdx = 0;
+    for(let r=0; r<rows.length; r++){
+      const col1 = String(cell(r,1)).trim();
+      const col2 = String(cell(r,2)).trim();
+      // Cabeçalho de semana: col2 contém "/" (é uma data) e col3 = "Tips"
+      const isHeader = col2.includes('/') && String(cell(r,3)).toLowerCase().includes('tip');
+      if(!isHeader) continue;
+
+      // r = cabeçalho, r+1..r+4 = Dog-1..Dog-4
+      let wS=0, wT=0, wAppt=0, wGas=0, wGG=0;
+
+      S_COLS.forEach((sc, di)=>{
+        const tc = T_COLS[di];
+        let dS=0, dT=0, dAppt=0;
+        for(let dog=1; dog<=4; dog++){
+          const v = pv(cell(r+dog, sc));
+          const t = pv(cell(r+dog, tc));
+          if(v>0){ dS+=v; dT+=t; dAppt++; }
+        }
+        if(dS>0||dT>0){
+          wS+=dS; wT+=dT; wAppt+=dAppt;
+          // acumula por dia da semana
+          dayTotals.push({di, s:dS, t:dT});
+        }
+      });
+
+      // Gasolina e Gás: linhas r+5 a r+9, label na col 1
+      for(let sub=r+4; sub<=r+9 && sub<rows.length; sub++){
+        const lbl = String(cell(sub,1)).toLowerCase().trim();
+        if(lbl.startsWith('gasolina')){
+          S_COLS.forEach(sc=>{ wGas+=pv(cell(sub,sc)); });
+        }
+        if(lbl.startsWith('gás') || lbl.startsWith('gas')){
+          S_COLS.forEach(sc=>{ wGG+=pv(cell(sub,sc)); });
+        }
+        // Despesas fixas
+        if(lbl.includes('seguro'))  segVan = pv(cell(sub,2));
+        if(lbl.includes('produto')) prods  = pv(cell(sub,2));
+        if(lbl.includes('manut'))   manut  = pv(cell(sub,2));
+      }
+
+      totGas+=wGas; totGG+=wGG; totalAppt+=wAppt;
+      weeks.push({label:'Sem '+(++weekIdx), s:wS, t:wT, gas:wGas, gg:wGG, appt:wAppt});
+    }
+
+    // Agrupa por dia da semana (0=Seg...4=Sex)
+    const dayS=[0,0,0,0,0], dayT=[0,0,0,0,0], dayCnt=[0,0,0,0,0];
+    dayTotals.forEach(({di,s,t})=>{
+      dayS[di]+=s; dayT[di]+=t; dayCnt[di]++;
+    });
+
+    finalS    = weeks.reduce((a,w)=>a+w.s, 0);
+    finalT    = weeks.reduce((a,w)=>a+w.t, 0);
+    finalGas  = totGas;
+    finalGG   = totGG;
+    finalDesp = segVan + prods + manut;
+
+    // render charts com dayS/dayT
+    renderCharts(weeks, dayS, dayT, dayCnt, finalS, finalT, finalFat2(finalS,finalT),
+      finalGas, finalGG, finalDesp, totalAppt, segVan, prods, manut);
+    return;
+
+  } else {
+    // ── Estrutura antiga (Jun/26) ─────────────────────────────────────────────
+    const dayS=[0,0,0,0,0], dayT=[0,0,0,0,0], dayCnt=[0,0,0,0,0];
+    const WEEK_STARTS_OLD=[1,12,22,32,42];
+    const OLD_DAY_S=[1,3,5,7,9];
+    const OLD_DAY_T=[2,4,6,8,10];
+
+    WEEK_STARTS_OLD.forEach((ws,wi)=>{
+      let wS=0,wT=0,wGas=0,wGG=0,wAppt=0;
+      OLD_DAY_S.forEach((dc,di)=>{
+        let dS=0,dT=0,dAppt=0;
+        for(let dog=1;dog<=4;dog++){
+          const val=pv(cell(ws+dog,dc));
+          const tip=pv(cell(ws+dog,OLD_DAY_T[di]));
+          if(val>0){ dS+=val; dT+=tip; dAppt++; }
+        }
+        wS+=dS; wT+=dT; wAppt+=dAppt;
+        if(dS>0||dT>0){ dayS[di]+=dS; dayT[di]+=dT; dayCnt[di]++; }
+      });
+      wGas=pv(cell(ws+7,14));
+      wGG=pv(cell(ws+8,14));
+      totGas+=wGas; totGG+=wGG; totalAppt+=wAppt;
+      weeks.push({label:'Sem '+(wi+1),s:wS,t:wT,gas:wGas,gg:wGG,appt:wAppt});
+    });
+
+    const ws0=WEEK_STARTS_OLD[0];
+    for(let r=ws0;r<=ws0+6;r++){
+      const lbl=String(cell(r,15)).toLowerCase().trim();
+      const val=pv(cell(r,16));
+      if(lbl.includes('seguro')) segVan=val;
+      else if(lbl.includes('produto')) prods=val;
+      else if(lbl.includes('manut')) manut=val;
+    }
+
+    const gS=pv(cell(8,16)), gT=pv(cell(9,16));
+    const gGas=pv(cell(8,18)), gGG=pv(cell(9,18));
+    const gMensalHasGas = String(cell(8,17)).toLowerCase().includes('gasolina');
+    const gMensalHasGG  = String(cell(9,17)).toLowerCase().includes('gás');
+    const gDesp=pv(cell(8,20));
+
+    finalS    = gS   || dayS.reduce((a,b)=>a+b,0);
+    finalT    = gT   || dayT.reduce((a,b)=>a+b,0);
+    finalGas  = gMensalHasGas ? gGas : totGas;
+    finalGG   = gMensalHasGG  ? gGG  : totGG;
+    finalDesp = gDesp || (segVan+prods+manut);
+
+    renderCharts(weeks, dayS, dayT, dayCnt, finalS, finalT, finalFat2(finalS,finalT),
+      finalGas, finalGG, finalDesp, totalAppt, segVan, prods, manut);
+    return;
+  }
+}
+
+function finalFat2(s,t){ return s+t; }
+
+function renderCharts(weeks, dayS, dayT, dayCnt, finalS, finalT, finalFat,
+    finalGas, finalGG, finalDesp, totalAppt, segVan, prods, manut){
+  segVan = segVan||0; prods = prods||0; manut = manut||0;
+  const totalGastos = finalGas + finalGG + finalDesp;
+  const finalLiq    = finalFat - totalGastos;
+  const margem      = finalFat>0 ? (finalLiq/finalFat*100) : 0;
+  const avgDog      = totalAppt>0 ? finalS/totalAppt : 0;
 
   setCard('cv-fat',   finalFat,  'kpi-value primary');
   setCard('cv-serv',  finalS,    'kpi-value');
